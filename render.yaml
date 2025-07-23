@@ -1,0 +1,13 @@
+# render.yaml (in ROOT)
+services:
+  - type: web
+    name: smart-greenhouse-backend
+    runtime: python
+    env: python
+    buildCommand: |
+      pip install -r backend/requirements.txt
+    startCommand: |
+      gunicorn backend.app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
