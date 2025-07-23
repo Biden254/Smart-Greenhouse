@@ -5,6 +5,7 @@ services:
     runtime: python
     env: python
     buildCommand: |
+      pip install --upgrade pip
       pip install -r backend/requirements.txt
     startCommand: |
       gunicorn backend.app:app
