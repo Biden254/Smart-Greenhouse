@@ -1,5 +1,10 @@
-// Global chart reference
+// Global variables
 let sensorChart = null;
+const API_BASE_URL = 'https://smart-greenhouse.onrender.com';
+const API_ENDPOINTS = {
+  current: `${API_BASE_URL}/api/current`,
+  simulate: `${API_BASE_URL}/api/simulate`
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
@@ -10,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const lastUpdatedEl = document.getElementById('last-updated');
     const simulateBtn = document.getElementById('simulate-btn');
     const chartCanvas = document.getElementById('sensorChart');
+    const alertPanelEl = document.getElementById('alert-panel');
     
     // Initialize Chart
     initChart();
@@ -18,11 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatValue(value, unit) {
         return `<span class="sensor-value">${value.toFixed(1)}</span><span class="sensor-unit">${unit}</span>`;
     }
-    const API_BASE_URL = 'https://smart-greenhouse.onrender.com';
-    const API_ENDPOINTS = {
-    current: `${API_BASE_URL}/api/current`,
-    simulate: `${API_BASE_URL}/api/simulate`
-        };
+    
     // Initialize empty chart
     function initChart() {
         const ctx = chartCanvas.getContext('2d');
@@ -83,17 +85,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show browser notification
     function showNotification(title, message) {
-        // Check if browser supports notifications
         if (!("Notification" in window)) {
-            console.log("This browser does not support notifications");
+            console.log("This browser doesn't support notifications");
             return;
         }
         
-        // Check if permission is already granted
         if (Notification.permission === "granted") {
             new Notification(title, { body: message });
         } 
-        // Otherwise, ask for permission
         else if (Notification.permission !== "denied") {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
@@ -170,8 +169,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             alertElement.className = 'alert-content alert-critical';
-            
-            // Show browser notification
             showNotification("CRITICAL ALERT", "Dangerous greenhouse conditions detected!");
         } 
         else if (alerts.alert_triggered) {
@@ -181,8 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             alertElement.className = 'alert-content alert-warning';
-            
-            // Show browser notification
             showNotification("Warning", `${alerts.alert_count} critical conditions detected`);
         } 
         else {
@@ -227,10 +222,13 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
     
-    // Fetch current data
+    // Fetch current data from Render backend
     function fetchCurrentData() {
-        fetch('/api/current')
-            .then(response => response.json())
+        fetch(API_ENDPOINTS.current)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
             .then(data => {
                 updateSensorReadings(data.sensor_data);
                 updateSystemDecisions(data.decision);
@@ -238,21 +236,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateTrendRecommendation(data.trend_recommendation);
                 updateLastUpdated();
                 
-                // Also update chart if we have history
                 if (data.history) {
                     updateChart(data.history);
                 }
             })
-            .catch(error => console.error('Error fetching data:', error));
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                useMockData();
+            });
     }
-    
-    // Run simulation
+
+    // Run simulation via Render backend
     simulateBtn.addEventListener('click', function() {
         simulateBtn.disabled = true;
         simulateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Simulating...';
         
-        fetch('/api/simulate')
-            .then(response => response.json())
+        fetch(API_ENDPOINTS.simulate)
+            .then(response => {
+                if (!response.ok) throw new Error('Simulation failed');
+                return response.json();
+            })
             .then(data => {
                 if (data.data && data.data.length > 0) {
                     const lastReading = data.data[data.data.length - 1];
@@ -262,21 +265,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateHistory(data.data);
                     updateTrendRecommendation(data.trend_recommendation);
                     updateLastUpdated();
-                    
-                    // Update chart with simulation data
                     updateChart(data.data);
                 }
-                
-                simulateBtn.disabled = false;
-                simulateBtn.innerHTML = '<i class="fas fa-play"></i> Run 10-Hour Simulation';
             })
             .catch(error => {
                 console.error('Error running simulation:', error);
+                runMockSimulation();
+            })
+            .finally(() => {
                 simulateBtn.disabled = false;
                 simulateBtn.innerHTML = '<i class="fas fa-play"></i> Run 10-Hour Simulation';
             });
     });
-    
+
+    // Mock data fallback functions
+    function useMockData() {
+        const mockData = {
+            sensor_data: {
+                temperature: 25.5,
+                humidity: 65,
+                light_intensity: 750,
+                soil_moisture: 45,
+                co2: 800,
+                timestamp: new Date().toISOString()
+            },
+            decision: {
+                watering: 'light',
+                shading: 'partial',
+                alerts: {
+                    alert_triggered: false,
+                    critical_flag: false
+                }
+            },
+            trend_recommendation: 'Maintain current watering schedule'
+        };
+        
+        updateSensorReadings(mockData.sensor_data);
+        updateSystemDecisions(mockData.decision);
+        updateAlerts(mockData.decision.alerts);
+        updateTrendRecommendation(mockData.trend_recommendation);
+        updateLastUpdated();
+    }
+
+    function runMockSimulation() {
+        const mockHistory = Array.from({length: 10}, (_, i) => ({
+            sensor_data: {
+                temperature: 25 + Math.sin(i) * 5,
+                humidity: 60 + Math.cos(i) * 10,
+                light_intensity: 800 + Math.random() * 400,
+                soil_moisture: 40 + Math.random() * 20,
+                co2: 800 + Math.random() * 400,
+                timestamp: new Date(Date.now() - (i * 3600000)).toISOString()
+            },
+            decision: {
+                watering: ['full', 'light', 'skip'][Math.floor(Math.random() * 3)],
+                shading: ['open', 'partial', 'full'][Math.floor(Math.random() * 3)],
+                alerts: {
+                    alert_triggered: Math.random() > 0.8,
+                    alert_count: Math.floor(Math.random() * 5),
+                    critical_flag: Math.random() > 0.9
+                }
+            }
+        }));
+        
+        updateHistory(mockHistory);
+        updateChart(mockHistory);
+        alert('Simulation service unavailable. Showing demo data.');
+    }
+
     // Initial load
     fetchCurrentData();
     
