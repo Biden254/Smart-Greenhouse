@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify
-from greenhouse import GreenhouseController
-from simulation import SensorSimulator
+from .greenhouse import GreenhouseController
+from .simulation import SensorSimulator
 import json
 
 # Initialize Flask app with correct template and static folders
