@@ -18,7 +18,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatValue(value, unit) {
         return `<span class="sensor-value">${value.toFixed(1)}</span><span class="sensor-unit">${unit}</span>`;
     }
-    
+    const API_BASE_URL = 'https://smart-greenhouse.onrender.com';
+    const API_ENDPOINTS = {
+    current: `${API_BASE_URL}/api/current`,
+    simulate: `${API_BASE_URL}/api/simulate`
+        };
     // Initialize empty chart
     function initChart() {
         const ctx = chartCanvas.getContext('2d');
